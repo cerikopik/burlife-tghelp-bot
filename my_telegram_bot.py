@@ -1,23 +1,21 @@
-import os # ⭐ Импортируем библиотеку для работы с переменными окружения
+import os
 import asyncio
 from telegram import Bot
+# ⭐ 1. Импортируем новую вспомогательную функцию
+from telegram.helpers import escape_markdown
 from telegram.ext import Application, MessageHandler, CommandHandler, filters
 
 # --- СЕКРЕТНЫЕ ДАННЫЕ БЕРУТСЯ ИЗ ОКРУЖЕНИЯ ---
-# ⭐ Убираем токены из кода. Теперь скрипт будет брать их из настроек Render.
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 GROUP_CHAT_ID = os.getenv('GROUP_CHAT_ID')
 
-# Проверка, что переменные были успешно загружены
 if not BOT_TOKEN or not GROUP_CHAT_ID:
     raise ValueError("Не найдены переменные окружения BOT_TOKEN или GROUP_CHAT_ID!")
 
-# Преобразуем ID группы в число, так как переменные окружения всегда строки
 GROUP_CHAT_ID = int(GROUP_CHAT_ID)
-# --- КОНЕЦ БЛОКА С ДАННЫМИ ---
+# --- КОНЕЦ БЛОКА С ДАННЫЯМИ ---
 
 
-# Функция 1: Приветствует пользователя по команде /start
 async def start(update, context):
     user_name = update.message.from_user.first_name
     welcome_text = (
@@ -28,26 +26,37 @@ async def start(update, context):
     )
     await update.message.reply_text(welcome_text)
 
-# (Остальные функции forwarder и reply_to_user остаются без изменений)
-
+# ↓↓↓ ИЗМЕНЕНИЯ ТОЛЬКО В ЭТОЙ ФУНКЦИИ ↓↓↓
 async def forwarder(update, context):
+    """Пересылает сообщение пользователя и добавляет информацию о нем."""
     user = update.message.from_user
+
+    # ⭐ 2. Экранируем все данные от пользователя перед вставкой в строку
+    first_name = escape_markdown(user.first_name, version=2)
+    last_name = escape_markdown(user.last_name or '', version=2)
+    user_id = user.id # ID - это число, его экранировать не нужно
+    username = escape_markdown(user.username or 'не указан', version=2)
+
+    # Собираем сообщение, используя уже безопасные переменные
     user_info = (
         f"📩 Новое сообщение от пользователя:\n\n"
-        f"👤 Имя: {user.first_name} {user.last_name or ''}\n"
-        f"🆔 ID: `{user.id}`\n"
-        f"🔗 Юзернейм: @{user.username or 'не указан'}"
+        f"👤 Имя: {first_name} {last_name}\n"
+        f"🆔 ID: `{user_id}`\n" # Оставляем Markdown для ID
+        f"🔗 Юзернейм: @{username}"
     )
+
     await context.bot.send_message(
         chat_id=GROUP_CHAT_ID,
         text=user_info,
-        parse_mode='Markdown'
+        # ⭐ 3. Используем рекомендованный MarkdownV2
+        parse_mode='MarkdownV2'
     )
     await context.bot.forward_message(
         chat_id=GROUP_CHAT_ID,
         from_chat_id=update.message.chat_id,
         message_id=update.message.message_id
     )
+# ↑↑↑ ИЗМЕНЕНИЯ ТОЛЬКО В ЭТОЙ ФУНКЦИИ ↑↑↑
 
 async def reply_to_user(update, context):
     if update.message.chat_id == GROUP_CHAT_ID:
