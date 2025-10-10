@@ -1,7 +1,7 @@
 import os
 import re
 import asyncio
-from telegram import Bot
+from telegram import Bot, ReactionTypeEmoji
 from telegram.helpers import escape_markdown
 from telegram.ext import Application, MessageHandler, CommandHandler, filters
 
@@ -13,7 +13,7 @@ if not BOT_TOKEN or not GROUP_CHAT_ID:
     raise ValueError("Не найдены переменные окружения BOT_TOKEN или GROUP_CHAT_ID!")
 
 GROUP_CHAT_ID = int(GROUP_CHAT_ID)
-# --- КОНЕЦ БЛОКА С ДАННЫМИ ---
+# --- КОНЕЦ БЛОКА С ДАННЫЯМИ ---
 
 
 async def start(update, context):
@@ -21,9 +21,9 @@ async def start(update, context):
     user_name = update.message.from_user.first_name
     welcome_text = (
         f"Здравствуйте, {user_name}!\n\n"
-        "Я бот для связи с администрацией телеграм канала."
-        "Просто отправьте мне в сообщении 4х значный код, который вы получили на сайте.\n\n"
-        "Ожидайте ответного сообщения с пригласительной ссылкой. Заявки обрабатываются вручную, это займёт какое-то время ⌛."
+        "Я бот для связи с администрацией сайта. "
+        "Вы можете написать здесь свой вопрос или оставить отзыв.\n\n"
+        "Просто отправьте сообщение, и я его передам. Вы также можете прикреплять фото."
     )
     await update.message.reply_text(welcome_text)
 
@@ -51,9 +51,10 @@ async def forwarder(update, context):
         from_chat_id=update.message.chat_id,
         message_id=update.message.message_id
     )
-    await update.message.reply_text("Спасибо! Ваше сообщение принято ✅. Мы скоро с вами свяжемся.")
+    await update.message.reply_text("Спасибо! Ваше сообщение принято. Мы скоро с вами свяжемся.")
 
 
+# ↓↓↓ ИЗМЕНЕНИЯ ЗДЕСЬ ↓↓↓
 async def reply_to_user(update, context):
     """Извлекает ID из текста сообщения бота и отправляет ответ."""
     if not update.message.reply_to_message:
@@ -66,18 +67,30 @@ async def reply_to_user(update, context):
         
         if match:
             user_id = int(match.group(1))
+
+            # ⭐ 1. Отправляем предустановленное сообщение со ссылкой
+            preset_text = "Это автоматическое сообщение. Больше информации на [нашем сайте](https://www.example.com/)."
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=preset_text,
+                parse_mode='Markdown' # Используем Markdown для ссылки
+            )
+
+            # ⭐ 2. Отправляем основной ответ админа (как и раньше)
             await context.bot.copy_message(
                 chat_id=user_id,
                 from_chat_id=update.message.chat_id,
                 message_id=update.message.message_id
             )
-            # ⭐ ИЗМЕНЕНИЕ ЗДЕСЬ: меняем add_reaction на set_reaction
-            await update.message.set_reaction("✅")
+            
+            # Ставим реакцию об успешной отправке
+            await update.message.set_reaction(reaction=ReactionTypeEmoji("✅"))
             return
 
     await update.message.reply_text(
         "ℹ️ **Подсказка:** Чтобы ответить пользователю, пожалуйста, отвечайте на информационное сообщение бота, которое содержит ID пользователя."
     )
+
 
 def main():
     """Запускает бота и настраивает все обработчики."""
