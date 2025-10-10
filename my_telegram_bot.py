@@ -54,7 +54,6 @@ async def forwarder(update, context):
     await update.message.reply_text("Спасибо! Ваше сообщение принято. Мы скоро с вами свяжемся.")
 
 
-# ↓↓↓ ИЗМЕНЕНИЯ ЗДЕСЬ ↓↓↓
 async def reply_to_user(update, context):
     """Извлекает ID из текста сообщения бота и отправляет ответ."""
     if not update.message.reply_to_message:
@@ -68,23 +67,21 @@ async def reply_to_user(update, context):
         if match:
             user_id = int(match.group(1))
 
-            # ⭐ 1. Отправляем предустановленное сообщение со ссылкой
             preset_text = "Это автоматическое сообщение. Больше информации на [нашем сайте](https://www.example.com/)."
             await context.bot.send_message(
                 chat_id=user_id,
                 text=preset_text,
-                parse_mode='Markdown' # Используем Markdown для ссылки
+                parse_mode='Markdown'
             )
 
-            # ⭐ 2. Отправляем основной ответ админа (как и раньше)
             await context.bot.copy_message(
                 chat_id=user_id,
                 from_chat_id=update.message.chat_id,
                 message_id=update.message.message_id
             )
             
-            # Ставим реакцию об успешной отправке
-            await update.message.set_reaction(reaction=ReactionTypeEmoji("✅"))
+            # ⭐ ИЗМЕНЕНИЕ ЗДЕСЬ: меняем ✅ на 👍
+            await update.message.set_reaction(reaction=ReactionTypeEmoji("👍"))
             return
 
     await update.message.reply_text(
