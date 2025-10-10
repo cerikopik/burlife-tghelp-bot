@@ -1,5 +1,5 @@
 import os
-import re # ⭐ Импортируем библиотеку для поиска по тексту
+import re
 import asyncio
 from telegram import Bot
 from telegram.helpers import escape_markdown
@@ -38,7 +38,7 @@ async def forwarder(update, context):
     user_info = (
         f"📩 Новое сообщение от пользователя:\n\n"
         f"👤 Имя: {first_name} {last_name}\n"
-        f"🆔 ID: `{user_id}`\n"  # Эта строка - ключ к новой логике
+        f"🆔 ID: `{user_id}`\n"
         f"🔗 Юзернейм: @{username}"
     )
     await context.bot.send_message(
@@ -54,7 +54,6 @@ async def forwarder(update, context):
     await update.message.reply_text("Спасибо! Ваше сообщение принято. Мы скоро с вами свяжемся.")
 
 
-# ↓↓↓ ПОЛНОСТЬЮ ПЕРЕРАБОТАННАЯ ФУНКЦИЯ ОТВЕТА ↓↓↓
 async def reply_to_user(update, context):
     """Извлекает ID из текста сообщения бота и отправляет ответ."""
     if not update.message.reply_to_message:
@@ -62,24 +61,20 @@ async def reply_to_user(update, context):
 
     replied_to_msg = update.message.reply_to_message
 
-    # Проверяем, что мы отвечаем на сообщение нашего бота
     if replied_to_msg.from_user.is_bot and replied_to_msg.text:
-        # Ищем в тексте сообщения строку "ID: `число`" и извлекаем число
-        match = re.search(r"🆔 ID: `(\d+)`", replied_to_msg.text)
+        # ⭐ ИЗМЕНЕНИЕ ЗДЕСЬ: Убираем символы ` из поиска
+        match = re.search(r"🆔 ID: (\d+)", replied_to_msg.text)
         
         if match:
             user_id = int(match.group(1))
-            # УСПЕХ: ID найден, отправляем ответ
             await context.bot.copy_message(
                 chat_id=user_id,
                 from_chat_id=update.message.chat_id,
                 message_id=update.message.message_id
             )
             await update.message.add_reaction("✅")
-            return # Завершаем выполнение
+            return
 
-    # Если мы дошли до сюда, значит, что-то пошло не так
-    # (например, ответили на пересланное сообщение, а не на служебное)
     await update.message.reply_text(
         "ℹ️ **Подсказка:** Чтобы ответить пользователю, пожалуйста, отвечайте на информационное сообщение бота, которое содержит ID пользователя."
     )
