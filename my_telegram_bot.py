@@ -52,17 +52,17 @@ async def forwarder(update, context):
     )
     await update.message.reply_text("Спасибо! Ваше сообщение принято. Мы скоро с вами свяжемся.")
 
-# ↓↓↓ ОСНОВНЫЕ ИЗМЕНЕНИЯ ЗДЕСЬ ↓↓↓
+
+# ↓↓↓ ГЛАВНОЕ ИСПРАВЛЕНИЕ ЗДЕСЬ ↓↓↓
 async def reply_to_user(update, context):
     """Отправляет ответ админа обратно пользователю или сообщает об ошибке."""
-    # Проверяем, что это ответ на сообщение
     if not update.message.reply_to_message:
         return
 
     replied_to_msg = update.message.reply_to_message
 
-    # ГЛАВНАЯ ПРОВЕРКА: есть ли информация об оригинальном отправителе?
-    if replied_to_msg.forward_from:
+    # ⭐ Новый, безопасный способ проверки, который не падает с ошибкой
+    if hasattr(replied_to_msg, 'forward_from') and replied_to_msg.forward_from:
         # УСПЕХ: отправляем сообщение как обычно
         original_user_id = replied_to_msg.forward_from.id
         await context.bot.copy_message(
@@ -72,12 +72,10 @@ async def reply_to_user(update, context):
         )
         await update.message.add_reaction("✅")
     else:
-        # НЕУДАЧА: отправляем диагностическое сообщение в группу
+        # НЕУДАЧА: теперь диагностика сработает правильно
         error_text = ""
-        # Проверяем, не скрыл ли пользователь свой профиль
-        if replied_to_msg.forward_sender_name:
+        if hasattr(replied_to_msg, 'forward_sender_name') and replied_to_msg.forward_sender_name:
             error_text = "❌ **Ошибка:** Не могу ответить. Пользователь скрыл свой профиль в настройках приватности (Пересылка сообщений). Ответить ему через бота невозможно."
-        # Проверяем, не ответили ли мы на сообщение самого бота
         elif replied_to_msg.from_user.is_bot:
             error_text = "❌ **Ошибка:** Вы ответили на служебное сообщение бота, а не на пересланное сообщение пользователя. Пожалуйста, отвечайте на другое сообщение."
         else:
@@ -89,7 +87,6 @@ def main():
     """Запускает бота и настраивает все обработчики."""
     application = Application.builder().token(BOT_TOKEN).build()
     application.add_handler(CommandHandler("start", start))
-    # ВАЖНО: reply_handler должен стоять ПЕРЕД forwarder, чтобы он перехватывал ответы в группе
     application.add_handler(MessageHandler(filters.REPLY & filters.Chat(chat_id=GROUP_CHAT_ID), reply_to_user))
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND & ~filters.Chat(chat_id=GROUP_CHAT_ID), forwarder))
     print("Бот запущен...")
