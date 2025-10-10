@@ -13,7 +13,7 @@ if not BOT_TOKEN or not GROUP_CHAT_ID:
     raise ValueError("Не найдены переменные окружения BOT_TOKEN или GROUP_CHAT_ID!")
 
 GROUP_CHAT_ID = int(GROUP_CHAT_ID)
-# --- КОНЕЦ БЛОКА С ДАННЫЯМИ ---
+# --- КОНЕЦ БЛОКА С ДАННЫМИ ---
 
 
 async def start(update, context):
@@ -21,9 +21,9 @@ async def start(update, context):
     user_name = update.message.from_user.first_name
     welcome_text = (
         f"Здравствуйте, {user_name}!\n\n"
-        "Я бот для связи с администрацией сайта. "
-        "Вы можете написать здесь свой вопрос или оставить отзыв.\n\n"
-        "Просто отправьте сообщение, и я его передам. Вы также можете прикреплять фото."
+        "Я бот для связи с администрацией телеграм канала."
+        "Просто отправьте мне в сообщении 4х значный код, который вы получили на сайте.\n\n"
+        "Ожидайте ответного сообщения с пригласительной ссылкой. Заявки обрабатываются вручную, это займёт какое-то время ⌛."
     )
     await update.message.reply_text(welcome_text)
 
@@ -51,7 +51,7 @@ async def forwarder(update, context):
         from_chat_id=update.message.chat_id,
         message_id=update.message.message_id
     )
-    await update.message.reply_text("Спасибо! Ваше сообщение принято. Мы скоро с вами свяжемся.")
+    await update.message.reply_text("Спасибо! Ваше сообщение принято ✅. Мы скоро с вами свяжемся.")
 
 
 async def reply_to_user(update, context):
@@ -62,7 +62,6 @@ async def reply_to_user(update, context):
     replied_to_msg = update.message.reply_to_message
 
     if replied_to_msg.from_user.is_bot and replied_to_msg.text:
-        # ⭐ ИЗМЕНЕНИЕ ЗДЕСЬ: Убираем символы ` из поиска
         match = re.search(r"🆔 ID: (\d+)", replied_to_msg.text)
         
         if match:
@@ -72,7 +71,8 @@ async def reply_to_user(update, context):
                 from_chat_id=update.message.chat_id,
                 message_id=update.message.message_id
             )
-            await update.message.add_reaction("✅")
+            # ⭐ ИЗМЕНЕНИЕ ЗДЕСЬ: меняем add_reaction на set_reaction
+            await update.message.set_reaction("✅")
             return
 
     await update.message.reply_text(
