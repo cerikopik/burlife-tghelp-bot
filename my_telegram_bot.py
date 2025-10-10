@@ -21,15 +21,14 @@ async def start(update, context):
     user_name = update.message.from_user.first_name
     welcome_text = (
         f"Здравствуйте, {user_name}!\n\n"
-        "Я бот для связи с администрацией телеграм канала 🤖 "
-        "Просто отправьте мне в сообщении 4х значный код, который вы получили на сайте.\n\n"
-        "Ожидайте ответного сообщения с пригласительной ссылкой. Заявки обрабатываются вручную, это займёт какое-то время ⌛"
+        "Я бот для связи с администрацией сайта. "
+        "Пожалуйста, введите ваш код (4 символа) или отправьте фотографию."
     )
     await update.message.reply_text(welcome_text)
 
 
 async def forwarder(update, context):
-    """Пересылает сообщение пользователя и добавляет информацию о нем с кнопкой."""
+    """Пересылает сообщение пользователя и добавляет информацию о нем с кнопками."""
     user = update.message.from_user
     first_name = escape_markdown(user.first_name, version=2)
     last_name = escape_markdown(user.last_name or '', version=2)
@@ -43,8 +42,12 @@ async def forwarder(update, context):
         f"🔗 Юзернейм: @{username}"
     )
 
+    # ⭐ 1. Создаем две кнопки в одном ряду
     keyboard = [
-        [InlineKeyboardButton("Ответить шаблоном", callback_data=f"reply_to_{user_id}")]
+        [
+            InlineKeyboardButton("✅ Ответить шаблоном", callback_data=f"reply_to_{user_id}"),
+            InlineKeyboardButton("❌ Отклонить", callback_data=f"decline_to_{user_id}")
+        ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -61,33 +64,45 @@ async def forwarder(update, context):
         message_id=update.message.message_id
     )
     
-    await update.message.reply_text("Спасибо! Ваше сообщение принято ✅ Мы скоро с вами свяжемся.")
+    await update.message.reply_text("Спасибо! Ваше сообщение принято. Мы скоро с вами свяжемся.")
 
 
+# ↓↓↓ ОСНОВНЫЕ ИЗМЕНЕНИЯ ЗДЕСЬ ↓↓↓
 async def button_handler(update, context):
     """Обрабатывает нажатия на инлайн-кнопки."""
     query = update.callback_query
     await query.answer()
 
     data = query.data
+    user_id = int(data.split("_")[2])
+    preset_message = ""
+    success_reaction = ""
+
+    # ⭐ 2. Определяем, какая кнопка была нажата, и готовим сообщение
     if data.startswith("reply_to_"):
-        user_id = int(data.split("_")[2])
+        preset_message = "📧Ваша [ПРИГЛАСИТЕЛЬНАЯ ССЫЛКА](https://t\\.me/\\+k2dfZY9KPAowNjM6) в телеграм канал\\. После перехода по ссылке нажмите подать заявку, и она будет одобрена автоматически 👌"
+        success_reaction = "👍"
+    
+    elif data.startswith("decline_to_"):
+        preset_message = "К сожалению, ваша заявка была отклонена. Попробуйте позже."
+        success_reaction = "👎"
 
-        preset_message = "📧Ваша [ПРИГЛАСИТЕЛЬНАЯ ССЫЛКА](https://t.me/+k2dfZY9KPAowNjM6) в телеграм канал. После перехода по ссылке нажмите подать заявку, и она будет одобрена автоматически 👌"
-
+    # ⭐ 3. Отправляем выбранное сообщение и обновляем интерфейс
+    if preset_message:
         try:
-            await context.bot.send_message(chat_id=user_id, text=preset_message)
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=preset_message,
+                parse_mode='MarkdownV2'
+            )
             
-            # Убираем клавиатуру (кнопку)
+            # Убираем обе кнопки
             await query.edit_message_reply_markup(reply_markup=None)
-            
-            # ⭐ Заменяем всплывающее уведомление на реакцию
-            await query.message.set_reaction(reaction=ReactionTypeEmoji("👍"))
+            # Ставим соответствующую реакцию
+            await query.message.set_reaction(reaction=ReactionTypeEmoji(success_reaction))
 
         except Exception as e:
-            # В случае ошибки также убираем кнопку
             await query.edit_message_reply_markup(reply_markup=None)
-            # И можем вывести ошибку в лог на сервере для себя
             print(f"Не удалось отправить ответ пользователю {user_id}. Ошибка: {e}")
 
 
@@ -99,7 +114,7 @@ def main():
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND & ~filters.Chat(chat_id=GROUP_CHAT_ID), forwarder))
     
-    print("Бот запущен (с реакциями)...")
+    print("Бот запущен (с двумя кнопками)...")
     application.run_polling()
 
 
