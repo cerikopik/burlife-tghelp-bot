@@ -1,9 +1,10 @@
 import os
 import re
 import asyncio
+import logging
 from telegram import Bot, ReactionTypeEmoji, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, MessageHandler, CommandHandler, filters, CallbackQueryHandler, ContextTypes
 from telegram.helpers import escape_markdown
-from telegram.ext import Application, MessageHandler, CommandHandler, filters, CallbackQueryHandler
 
 # --- СЕКРЕТНЫЕ ДАННЫЕ БЕРУТСЯ ИЗ ОКРУЖЕНИЯ ---
 BOT_TOKEN = os.getenv('BOT_TOKEN')
@@ -13,9 +14,23 @@ if not BOT_TOKEN or not GROUP_CHAT_ID:
     raise ValueError("Не найдены переменные окружения BOT_TOKEN или GROUP_CHAT_ID!")
 
 GROUP_CHAT_ID = int(GROUP_CHAT_ID)
+
+# --- ДОБАВЛЕНО: Настройка логирования для отслеживания ошибок ---
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 # --- КОНЕЦ БЛОКА С ДАННЫМИ ---
 
 
+# --- ДОБАВЛЕНО: Глобальный обработчик ошибок ---
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Логирует все исключения, чтобы бот не прекращал работу."""
+    logger.error("Произошла ошибка:", exc_info=context.error)
+
+
+# --- ВАШИ ФУНКЦИИ (без изменений) ---
 async def start(update, context):
     """Отправляет приветственное сообщение в ответ на команду /start."""
     user_name = update.message.from_user.first_name
@@ -88,7 +103,6 @@ async def button_handler(update, context):
     user_id = int(data.split("_")[2])
     
     try:
-        # Вся логика находится внутри try
         if data.startswith("reply_to_"):
             preset_message = "📧Ваша [ПРИГЛАСИТЕЛЬНАЯ ССЫЛКА](https://t\\.me/\\+k2dfZY9KPAowNjM6) в телеграм канал\\. После перехода по ссылке нажмите подать заявку, и она будет одобрена автоматически 👌"
             await context.bot.send_message(
@@ -98,7 +112,6 @@ async def button_handler(update, context):
             )
             await query.message.set_reaction(reaction=ReactionTypeEmoji("👍"))
 
-        # elif является частью той же конструкции if
         elif data.startswith("decline_to_"):
             preset_message = (
                 "Требуется дополнительная проверка вашей личности 🕵️‍♀️\n\n"
@@ -112,24 +125,24 @@ async def button_handler(update, context):
             )
             await query.message.set_reaction(reaction=ReactionTypeEmoji("👎"))
         
-        # Убираем кнопки после любого успешного действия
         await query.edit_message_reply_markup(reply_markup=None)
 
-    # except находится на том же уровне, что и try
     except Exception as e:
-        # В случае ошибки также убираем кнопки и выводим ошибку в лог
         await query.edit_message_reply_markup(reply_markup=None)
-        print(f"Не удалось отправить ответ пользователю {user_id}. Ошибка: {e}")
+        logger.error(f"Не удалось отправить ответ пользователю {user_id}. Ошибка: {e}")
 
 
 def main():
     """Запускает бота и настраивает все обработчики."""
     application = Application.builder().token(BOT_TOKEN).build()
 
+    # --- ДОБАВЛЕНО: Регистрация глобального обработчика ошибок ---
+    # Эта строка гарантирует, что при любой ошибке будет вызвана функция error_handler
+    application.add_error_handler(error_handler)
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
     
-    # ⭐ ИСПРАВЛЕНИЕ ЗДЕСЬ: Объединяем все фильтры в одну конструкцию
     user_message_filters = (filters.PHOTO | (filters.TEXT & ~filters.COMMAND)) & (~filters.Chat(chat_id=GROUP_CHAT_ID))
     application.add_handler(MessageHandler(user_message_filters, forwarder))
     
@@ -139,8 +152,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
