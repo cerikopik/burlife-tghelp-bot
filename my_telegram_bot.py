@@ -15,18 +15,20 @@ if not BOT_TOKEN or not GROUP_CHAT_ID:
 
 GROUP_CHAT_ID = int(GROUP_CHAT_ID)
 
-# --- ДОБАВЛЕНО: Настройка логирования для отслеживания ошибок ---
+# --- НАСТРОЙКА ЛОГИРОВАНИЯ ---
+# Устанавливаем уровень WARNING. Будут выводиться только предупреждения и ошибки.
+# Информационные сообщения, такие как getUpdates, будут скрыты.
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.WARNING
 )
 logger = logging.getLogger(__name__)
 # --- КОНЕЦ БЛОКА С ДАННЫМИ ---
 
 
-# --- ДОБАВЛЕНО: Глобальный обработчик ошибок ---
+# --- Глобальный обработчик ошибок ---
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Логирует все исключения, чтобы бот не прекращал работу."""
+    """Логирует исключения, вызванные обновлениями."""
     logger.error("Произошла ошибка:", exc_info=context.error)
 
 
@@ -136,8 +138,7 @@ def main():
     """Запускает бота и настраивает все обработчики."""
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # --- ДОБАВЛЕНО: Регистрация глобального обработчика ошибок ---
-    # Эта строка гарантирует, что при любой ошибке будет вызвана функция error_handler
+    # --- Регистрация глобального обработчика ошибок ---
     application.add_error_handler(error_handler)
 
     application.add_handler(CommandHandler("start", start))
