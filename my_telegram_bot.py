@@ -16,12 +16,16 @@ if not BOT_TOKEN or not GROUP_CHAT_ID:
 GROUP_CHAT_ID = int(GROUP_CHAT_ID)
 
 # --- НАСТРОЙКА ЛОГИРОВАНИЯ ---
-# Устанавливаем уровень WARNING. Будут выводиться только предупреждения и ошибки.
-# Информационные сообщения, такие как getUpdates, будут скрыты.
+### НОВОЕ: Устанавливаем основной уровень INFO, чтобы наши кастомные логи работали.
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.WARNING
+    level=logging.INFO
 )
+
+### НОВОЕ: "Заглушаем" шумные библиотеки, чтобы не видеть getUpdates.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram.ext").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 # --- КОНЕЦ БЛОКА С ДАННЫМИ ---
 
@@ -32,7 +36,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.error("Произошла ошибка:", exc_info=context.error)
 
 
-# --- ВАШИ ФУНКЦИИ (без изменений) ---
+# --- ВАШИ ФУНКЦИИ ---
 async def start(update, context):
     """Отправляет приветственное сообщение в ответ на команду /start."""
     user_name = update.message.from_user.first_name
@@ -51,13 +55,20 @@ async def forwarder(update, context):
     message = update.message
 
     is_valid = False
+    content_type = "" # Для логирования
+    
     if message.photo:
         is_valid = True
+        content_type = "фото"
     elif message.text:
         if len(message.text) == 4 and message.text.isascii() and message.text.isalnum():
             is_valid = True
+            content_type = f"код '{message.text}'"
 
     if is_valid:
+        ### НОВОЕ: Логируем успешную валидацию.
+        logger.info(f"Успешная валидация: Пользователь {user.id} ({user.first_name}) отправил {content_type}.")
+        
         first_name = escape_markdown(user.first_name, version=2)
         last_name = escape_markdown(user.last_name or '', version=2)
         user_id = user.id
@@ -92,6 +103,10 @@ async def forwarder(update, context):
         await message.reply_text("Спасибо! Ваше сообщение принято. Мы скоро с вами свяжемся.")
     
     else:
+        ### НОВОЕ: Логируем неуспешную валидацию.
+        invalid_text = message.text or "[нетекстовое сообщение]"
+        logger.info(f"Неуспешная валидация: Пользователь {user.id} ({user.first_name}) отправил невалидный текст: '{invalid_text}'.")
+        
         error_message = "❌ **Ошибка** Пожалуйста, отправьте код, состоящий ровно из 4 символов (латинские буквы и цифры)."
         await message.reply_text(error_message, parse_mode='Markdown')
 
@@ -138,9 +153,7 @@ def main():
     """Запускает бота и настраивает все обработчики."""
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # --- Регистрация глобального обработчика ошибок ---
     application.add_error_handler(error_handler)
-
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
     
